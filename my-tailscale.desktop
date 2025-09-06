@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=My Tailscale
+Comment=Launch my-tailscale (runs uv run main.py)
+Exec=sh -c 'cd "$HOME/.local/share/my-tailscale" && $HOME/.local/bin/uv run main.py'
+Terminal=true
+Categories=Utility;
+StartupNotify=true
