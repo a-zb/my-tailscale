@@ -9,8 +9,8 @@ import time
 class StatusChecker(QThread):
     """Run `tailscale status` in a background thread and emit the result."""
 
-    # emit: connected, tooltip (raw/pretty output), hostname, user/tailnet name, exit_node_host
-    statusChanged = pyqtSignal(bool, str, str, str, str)
+    # emit: connected, hostname, user/tailnet name, exit_node_host
+    statusChanged = pyqtSignal(bool, str, str, str)
 
     def __init__(self):
         super().__init__()
@@ -37,7 +37,6 @@ class StatusChecker(QThread):
                 err = (proc.stderr or "").strip()
 
                 connected = False
-                tooltip = out or err or "(no output)"
                 hostname = ""
                 user = ""
                 exit_node_host = "NO"
@@ -51,9 +50,7 @@ class StatusChecker(QThread):
                             connected = True
                         else:
                             connected = False
-                        # Pretty-print JSON for tooltip/debug
-                        tooltip = json.dumps(data, indent=2)
-
+                        
                         # Extract requested fields (use safe lookups)
                         self_info = data.get("Self") or {}
                         hostname = self_info.get("HostName") or ""
@@ -78,26 +75,24 @@ class StatusChecker(QThread):
                     except Exception:
                         # If JSON parsing fails, fall back to using raw output
                         connected = False
-                        tooltip = out or err
                         hostname = ""
                         user = ""
                         exit_node_host = "NO"
                 else:
                     # Non-zero return or empty output -> treat as disconnected and show stderr/stdout
                     connected = False
-                    tooltip = err or out
                     hostname = ""
                     user = ""
                     exit_node_host = "NO"
 
                 # Emit connected state, tooltip, hostname, user and exit node host
-                self.statusChanged.emit(connected, tooltip, hostname, user, exit_node_host)
+                self.statusChanged.emit(connected, hostname, user, exit_node_host)
             except Exception as e:
                 self.statusChanged.emit(False, str(e), "", "", "NO")
 
-            # Wait up to 10 seconds but remain responsive to stop requests by
+            # Wait up to 2 seconds but remain responsive to stop requests by
             # sleeping in short increments and checking the _running flag.
-            for _ in range(50):
+            for _ in range(20):
                 if not self._running:
                     break
                 time.sleep(0.1)
@@ -177,7 +172,7 @@ class MainWindow(QWidget):
         self.checker.statusChanged.connect(self.update_status)
         self.checker.start()
 
-    def update_status(self, connected: bool, output: str, hostname: str, user: str, exit_node_host: str):
+    def update_status(self, connected: bool, hostname: str, user: str, exit_node_host: str):
         # keep latest state
         self.connected = connected
         if connected:
@@ -189,7 +184,9 @@ class MainWindow(QWidget):
             # update button
             self.action_button.setText("Click to disconnect")
             self.action_button.setStyleSheet(
-                "color: white; background-color: #2ecc71; font-weight: bold; padding: 8px; border-radius: 6px;"
+                "QPushButton{ color: white; background-color: #2ecc71; font-weight: bold; padding: 8px; border-radius: 6px; }"
+                "QPushButton:hover{ background-color: #27ae60; }"
+                "QPushButton:pressed{ background-color: #1e8449; }"
             )
         else:
             self.status_label.setText("Disconnected")
@@ -198,7 +195,9 @@ class MainWindow(QWidget):
             )
             self.action_button.setText("Click to connect")
             self.action_button.setStyleSheet(
-                "color: white; background-color: #e74c3c; font-weight: bold; padding: 8px; border-radius: 6px;"
+                "QPushButton{ color: white; background-color: #e74c3c; font-weight: bold; padding: 8px; border-radius: 6px; }"
+                "QPushButton:hover{ background-color: #c0392b; }"
+                "QPushButton:pressed{ background-color: #a93226; }"
             )
 
         # Update the small status table
@@ -208,9 +207,6 @@ class MainWindow(QWidget):
             self.exit_node_label.setText(f"Exit Node : {exit_node_host or '(unknown)'}")
         except Exception:
             pass
-
-        # Show raw output on hover for debugging
-        self.status_label.setToolTip(output or "(no output)")
 
     def closeEvent(self, event):
         # Stop the background thread cleanly before closing the window
@@ -250,7 +246,6 @@ class MainWindow(QWidget):
         # will detect state changes on its next poll.
         try:
             self.action_button.setEnabled(True)
-            self.action_button.setToolTip(output or "(no output)")
         except Exception:
             pass
 
