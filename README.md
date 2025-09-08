@@ -55,6 +55,10 @@ Otherwise use PyPi
 cd ~/.local/share
 git clone https://github.com/a-zb/my-tailscale.git
 
+# Sync python dependencies
+cd my-tailscale
+uv sync
+
 # link the icon in the project in the main icons directory
 ln -s /home/YOURUSERNAME/.local/share/my-tailscale /usr/share/icons/tailscale.png
 
